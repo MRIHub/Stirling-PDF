@@ -541,7 +541,10 @@ export default function FileManagerView() {
         const file = await readDiskFile(entry);
         if (!file) return;
         clearFilesPageReturnRoute();
-        await addFiles([file], { selectFiles: true });
+        await addFiles([file], {
+          selectFiles: true,
+          ...(currentFolderId ? { folderId: currentFolderId } : {}),
+        });
         navActions.setWorkbench("viewer");
         navigate("/");
       } catch (err) {
@@ -559,7 +562,7 @@ export default function FileManagerView() {
         );
       }
     },
-    [addFiles, navActions, navigate, folders, t],
+    [addFiles, currentFolderId, navActions, navigate, folders, t],
   );
 
   // A working folder lists its real contents; each file wears its pipeline state and a state

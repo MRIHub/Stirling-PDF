@@ -90,6 +90,49 @@ export async function installTauri(page: Page) {
             w.__saveDisk();
             return null;
           }
+          case "plugin:fs|read_dir": {
+            const directory = args.path.replace(/[\\/]+$/, "");
+            const prefix = `${directory}/`;
+            const entries = new Map<string, boolean>();
+            for (const path of Object.keys(w.__disk)) {
+              const normalised = path.replace(/\\/g, "/");
+              const normalisedPrefix = prefix.replace(/\\/g, "/");
+              if (!normalised.startsWith(normalisedPrefix)) continue;
+              const rest = normalised.slice(normalisedPrefix.length);
+              const [name, ...descendants] = rest.split("/");
+              if (name) entries.set(name, descendants.length > 0);
+            }
+            return Array.from(entries, ([name, isDirectory]) => ({
+              name,
+              isDirectory,
+              isFile: !isDirectory,
+              isSymlink: false,
+            }));
+          }
+          case "plugin:fs|stat": {
+            const entry = w.__disk[args.path];
+            if (!entry) throw new Error(`ENOENT ${args.path}`);
+            return {
+              isFile: true,
+              isDirectory: false,
+              isSymlink: false,
+              size: entry.bytes.length,
+              mtime: entry.modifiedMs,
+              atime: null,
+              birthtime: null,
+              readonly: false,
+              fileAttributes: null,
+              dev: null,
+              ino: null,
+              mode: null,
+              nlink: null,
+              uid: null,
+              gid: null,
+              rdev: null,
+              blksize: null,
+              blocks: null,
+            };
+          }
           case "file_disk_state":
             return stat(args.path);
           case "plugin:fs|read_file": {

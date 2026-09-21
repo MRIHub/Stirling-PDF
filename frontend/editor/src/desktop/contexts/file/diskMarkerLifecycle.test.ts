@@ -1,6 +1,7 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import type { StirlingFileStub } from "@app/types/fileContext";
 import type { FileId, ToolOperation } from "@app/types/file";
+import type { FolderId } from "@app/types/folder";
 
 // A conflict marker must not outlive its file, nor precede one: the modal would
 // name a file that is gone, and an inherited marker suppresses the child's own.
@@ -84,6 +85,7 @@ describe("a tool output does not inherit its parent's disk markers", () => {
     size: 10,
     lastModified: 0,
     isLeaf: true,
+    folderId: "mount-1" as FolderId,
     versionNumber: 1,
     localFilePath: "C:/docs/report.pdf",
     diskSyncedSize: 500,
@@ -108,6 +110,7 @@ describe("a tool output does not inherit its parent's disk markers", () => {
     // The link and baseline must survive: dropping them would raise a bogus
     // conflict on every open, and Ctrl+S would stop writing back.
     expect(child.localFilePath).toBe("C:/docs/report.pdf");
+    expect(child.folderId).toBe(parent.folderId);
     expect(child.diskSyncedSize).toBe(500);
     expect(child.diskSyncedModifiedMs).toBe(400);
     expect(child.isDirty).toBe(true);

@@ -51,6 +51,36 @@ async function storedLinks(page: Page) {
   );
 }
 
+async function storedLeafLocations(page: Page) {
+  return page.evaluate(
+    () =>
+      new Promise<unknown[]>((resolve, reject) => {
+        const request = indexedDB.open("stirling-pdf-files");
+        request.onsuccess = () => {
+          const db = request.result;
+          const read = db.transaction("files").objectStore("files").getAll();
+          read.onsuccess = () => {
+            resolve(
+              read.result
+                .filter(({ isLeaf }) => isLeaf !== false)
+                .map(({ name, folderId, localFilePath }) => ({
+                  name,
+                  folderId,
+                  localFilePath,
+                })),
+            );
+            db.close();
+          };
+          read.onerror = () => {
+            db.close();
+            reject(read.error);
+          };
+        };
+        request.onerror = () => reject(request.error);
+      }),
+  );
+}
+
 async function expectLinked(page: Page) {
   await expect
     .poll(() => storedLinks(page))
@@ -137,4 +167,27 @@ test("an HTML file drop imports the native path", async ({ page }) => {
     { bytes: BYTES, mtime: MTIME },
   );
   await expectLinked(page);
+});
+
+test("a file opened from a mount keeps its folder and disk path", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    Object.assign(window, { __pickedPaths: "C:/Docs" });
+  });
+  await page.getByTestId("my-files-button").click();
+  await page.getByRole("button", { name: "New folder" }).first().click();
+  await page.getByRole("menuitem", { name: "Add local folder" }).click();
+
+  await expect(page).toHaveURL(/\/files\/[^/]+$/);
+  const mountId = decodeURIComponent(
+    new URL(page.url()).pathname.split("/").pop()!,
+  );
+  const diskFile = page.getByRole("row").filter({ hasText: "report.pdf" });
+  await expect(diskFile).toBeVisible();
+  await diskFile.dblclick();
+
+  await expect
+    .poll(() => storedLeafLocations(page))
+    .toEqual([{ name: "report.pdf", folderId: mountId, localFilePath: PATH }]);
 });
